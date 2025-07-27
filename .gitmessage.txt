@@ -1,0 +1,23 @@
+# <type>: <subject>
+
+# 예시:
+# feat: add year card list on home screen
+# fix: correct tab navigation routing issue
+# refactor: rename home.tsx to index.tsx for default tab
+# chore: update gitignore and clean node_modules
+# docs: update README with setup instructions
+#
+# ---------------------
+# 본문 (선택사항, Enter 1~2줄 띄고 작성)
+#
+# 어떤 변경을 했는지, 왜 필요한지 간단히 정리
+#
+# ---------------------
+# 커밋 타입 설명:
+# feat     - 기능 추가 (예: 기출문제 UI, 채점 기능)
+# fix      - 버그 수정 (예: 탭 이동 안되는 문제)
+# refactor - 구조 변경 (기능은 그대로, 코드 정리)
+# style    - UI 스타일/레이아웃 변경 (기능 X)
+# chore    - 설정, 패키지, Git 등 잡일
+# docs     - 문서 변경 (README, 주석 등)
+# test     - 테스트 코드 관련
