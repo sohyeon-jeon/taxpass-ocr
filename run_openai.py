@@ -3,6 +3,18 @@ import openai
 import base64
 from dotenv import load_dotenv
 
+'''
+문제 이미지에서 수식과 텍스트를 추출하는 OpenAI 기반 프롬프트 코드입니다.
+시험문제 이미지를 MathJax 호환 LaTeX 형식으로 변환하는 OCR 기능을 활용합니다.
+
+1. 문제번호, 지문, 선택지, 표 영역을 <<>> 태그로 명확히 구분하여 데이터베이스에 저장하기 용이하도록 설계했습니다.
+
+2. 모든 수식은 MathJax 표준에 맞춰 React 기반 라이브러리에서 활용할 수 있도록 LaTeX 문법으로 변환되며,
+문장 내 인라인 수식은 물론, 배열(array), 정렬(aligned) 등 다양한 수식 형태를 지원합니다.
+
+3. 복잡하거나 누락된 표 형태도 예외사항을 LaTeX 주석(% ⚠)으로 표시하며, 추론 없이 이미지에 보이는 내용만 정확히 추출되도록 튜닝되었습니다.
+'''
+
 # 1. .env 파일에서 OPENAI_API_KEY 불러오기
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
