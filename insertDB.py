@@ -30,17 +30,17 @@ conn = psycopg2.connect(
 )
 
 # 기본정보 설정
-subject_name = '세법'
-problem_group_name = '김문철_법인세법_법인세법총론_기본문제'
-question_file = '법인세법_기본문제_수정.json'
-answer_file = '법인세법총론_기본문제_답안_parsed.json'
-tag = ['법인세법', '법인세법총론']  # PostgreSQL 배열로 들어감
+subject_name = '행정소송법'
+problem_group_name = '2024'
+question_file = 'data/mcq_question/2024_행정소송법_수정.json'
+answer_file = 'data/mcq_question/2024_행정소송법_수정_답안.json'
+tag = ['행정소송법', '행정소송법2']  # PostgreSQL 배열로 들어감
 
 try:
     cur = conn.cursor()
 
     # 과목 생성
-    cur.execute("INSERT INTO subjects(name) VALUES (%s) RETURNING id", (subject_name,))
+    cur.execute("select id from subjects where name = %s", (subject_name,))
     subject_id = cur.fetchone()[0]
 
     # 문제 묶음 생성
