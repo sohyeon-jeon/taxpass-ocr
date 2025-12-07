@@ -1,6 +1,9 @@
 from bs4 import BeautifulSoup
 import json
 import re
+from pykospacing import Spacing
+
+spacing = Spacing()
 
 '''
 테마: 부가가치세 기초이론 → 문제 수: 4
@@ -36,7 +39,6 @@ circled_map = {
 }
 
 
-
 # -------------------------------------------------------------
 # Helper
 # -------------------------------------------------------------
@@ -60,6 +62,89 @@ def clean_li_without_tables(li):
     for t in li_copy.find_all("table"):
         t.decompose()
     return li_copy.get_text(" ", strip=True)
+
+
+TARGET_KEYS = {"question_title", "raw_text", "explanation"}
+
+CORRECTION_MAP = {
+    "전 단계 세액공제법": "전단계세액공제법",
+    "영리 목적": "영리목적",
+    "최종 과세기간 분": "최종과세기간분",
+    "농지 개량 작업": "농지개량작업",
+    "자기 농지의 확장": "자기농지의 확장",
+    "내국법인이상법에": "내국법인이 상법에",
+    "계속 등기": "계속등기",
+    "광업원 부": "광업 원부",
+    "이동통신 역무를": "이동통신역무를",
+    "자가주된": "자가 주된",
+    "주사업장 총괄납부 신청서": "주사업장총괄납부신청서"
+    , "주사업장 총괄납부": "주사업장총괄납부",
+    "사업자 단위 과세사업": "사업자단위과세사업",
+    "사업자 단위 과세": "사업자단위과세",
+    "사업 개시 일": "사업개시일",
+    "과세 대상 거래": "과세대상거래",
+    "거래 중과세대상거래": "거래 중 과세대상거래"
+    , "계속 적•반복적": "계속적•반복적",
+    "과 세 거래": "과세거래",
+    "등도주된": "등도 주된",
+    "부가가 차세 과세 대상": "부가가차세 과세대상",
+    "열등관리": "열 등 관리",
+    "弓": "여"
+
+}
+
+
+def clean_text(text: str, remove_all_spaces=False) -> str:
+    """문자열 전처리 규칙 정의"""
+    if text is None:
+        return text
+
+    # 1) HTML 제거
+    text = BeautifulSoup(text, "html.parser").get_text(" ", strip=True)
+
+    # 2) 문장 맨 앞의 circled 번호 제거
+    # 기존 circled 숫자 제거 + 일반 숫자 제거
+    text = re.sub(r"^(?:[①-㊿]|\d+[.)]?)\s*", "", text)
+
+    # 3) 중복 공백 제거
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # 4) circled 번호 뒤 공백 정리
+    text = re.sub(r"(①|②|③|④|⑤|⑥|⑦|⑧|⑨|⑩)\s+", r"\1 ", text)
+
+    # 5) 모든 공백 제거 옵션
+    # 띄어쓰기 및 맞춤법 처리
+    text = spacing(text.replace(" ", ""))
+
+    text = text.replace("。", "O")
+
+    # 7) 단어 교정 단계 추가(단어치환)
+    for wrong, right in CORRECTION_MAP.items():
+        text = text.replace(wrong, right)
+
+    return text
+
+
+def preprocess(obj):
+    """특정 속성만 전처리하는 재귀 함수"""
+
+    # dict → 내부 key/value 재귀 처리
+    if isinstance(obj, dict):
+        new_obj = {}
+        for k, v in obj.items():
+            # k가 대상 속성이면 clean_text 적용
+            if k in TARGET_KEYS and isinstance(v, str):
+                new_obj[k] = clean_text(v)
+            else:
+                new_obj[k] = preprocess(v)
+        return new_obj
+
+    # list → 요소마다 재귀 처리
+    if isinstance(obj, list):
+        return [preprocess(item) for item in obj]
+
+    # 그 외 (int, None 등) → 그대로 반환
+    return obj
 
 
 # -------------------------------------------------------------
@@ -105,7 +190,7 @@ if current_theme:
 # -------------------------------------------------------------
 results = []
 last_q_num = 0
-for theme in themes:
+for theme in themes[:7]:
     # print('theme',theme)
 
     theme_name = theme["theme_name"]
@@ -164,8 +249,6 @@ for theme in themes:
             ul_li.extend(u.find_all("li"))
 
         paragraphs = [b for b in problem_block if b.name == "p"]
-
-
 
         for table in tables:
             rows = table.find_all("tr")
@@ -317,13 +400,11 @@ for theme in themes:
 
                     continue
 
-
         # =============================================
         # (B) P 기반 파싱 — 테이블이 없을 때만 실행
         # =============================================
         temp_problem = {}
         temp_answer = {}
-
 
         for b in paragraphs:
 
@@ -336,7 +417,6 @@ for theme in themes:
 
             # ---- 문장 중간에 "⑥ X" ----
             m = re.search(r'([①-㊿])\s*([OXox])', text)
-
 
             if m:
                 index = m.group(1)
@@ -402,13 +482,15 @@ for theme in themes:
 # -------------------------------------------------------------
 # 출력
 # -------------------------------------------------------------
-# print(json.dumps(results, ensure_ascii=False, indent=2))
+cleaned_result = preprocess(results)
+
+print(json.dumps(cleaned_result, ensure_ascii=False, indent=2))
 
 # theme 개수
-theme_count = len(results)
-
-# 각 theme 안의 item 개수 출력
-for theme in results:
-    print(f"테마: {theme['theme']} → 문제 수: {len(theme['items'])}")
-
-print("\n총 theme 개수:", theme_count)
+# theme_count = len(results)
+#
+# # 각 theme 안의 item 개수 출력
+# for theme in results:
+#     print(f"테마: {theme['theme']} → 문제 수: {len(theme['items'])}")
+#
+# print("\n총 theme 개수:", theme_count)
