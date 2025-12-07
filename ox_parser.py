@@ -2,6 +2,23 @@ from bs4 import BeautifulSoup
 import json
 import re
 
+'''
+테마: 부가가치세 기초이론 → 문제 수: 4
+테마: 부가가치세 납세의무 → 문제 수: 11
+테마: 과세기간 &납세지 → 문제 수: 18
+테마: 총괄납부 vs 사업자단위과세 → 문제 수: 15
+테마: 사업자등록 → 문제 수: 12
+테마: 과세 거래(1) → 문제 수: 36
+테마: 과세 거래(2) → 문제 수: 25
+테마: 재화의 공급의제 → 문제 수: 17
+테마: 공급시기 &공급장소 → 문제 수: 28
+테마: 영세율 → 문제 수: 49
+테마: 면세(1) → 문제 수: 16
+테마: 면세(2) → 문제 수: 30
+테마: 면세포기 → 문제 수: 5
+테마: 영세율 vs 면세 → 문제 수: 6
+'''
+
 html = open("parse_data/output_17_43_fix.htm", encoding="utf-8").read()
 soup = BeautifulSoup(html, "html.parser")
 
@@ -10,8 +27,14 @@ circled_map = {
     "⑥": 6, "⑦": 7, "⑧": 8, "⑨": 9, "⑩": 10,
     "⑪": 11, "⑫": 12, "⑬": 13, "⑭": 14, "⑮": 15,
     "⑯": 16, "⑰": 17, "⑱": 18, "⑲": 19, "⑳": 20,
-    "㉑": 21, "㉒": 22, "㉓": 23, "㉔": 24, "㉕": 25
+    "㉑": 21, "㉒": 22, "㉓": 23, "㉔": 24, "㉕": 25,
+    "㉖": 26, "㉗": 27, "㉘": 28, "㉙": 29, "㉚": 30,
+    "㉛": 31, "㉜": 32, "㉝": 33, "㉞": 34, "㉟": 35,
+    "㊱": 36, "㊲": 37, "㊳": 38, "㊴": 39, "㊵": 40,
+    "㊶": 41, "㊷": 42, "㊸": 43, "㊹": 44, "㊺": 45,
+    "㊻": 46, "㊼": 47, "㊽": 48, "㊾": 49, "㊿": 50
 }
+
 
 
 # -------------------------------------------------------------
@@ -82,8 +105,8 @@ if current_theme:
 # -------------------------------------------------------------
 results = []
 last_q_num = 0
-
-for theme in themes[:7]:
+for theme in themes:
+    # print('theme',theme)
 
     theme_name = theme["theme_name"]
     blocks = theme["contents"]
@@ -91,6 +114,7 @@ for theme in themes[:7]:
     # 문제 시작 index 수집
     problem_positions = []
     for idx, tag in enumerate(blocks):
+        # print('tag',theme_name,idx,tag)
         text = clean(tag)
         num, title = parse_question_number(text)
 
@@ -108,6 +132,7 @@ for theme in themes[:7]:
 
     problem_positions.append((len(blocks), None, None))
 
+    # print('problem_positions',problem_positions)
     # ---------------------------------------------------------
     # 문제 단위 처리
     # ---------------------------------------------------------
@@ -138,12 +163,16 @@ for theme in themes[:7]:
         for u in uls:
             ul_li.extend(u.find_all("li"))
 
+        paragraphs = [b for b in problem_block if b.name == "p"]
+
+
+
         for table in tables:
             rows = table.find_all("tr")
             for row in rows:
                 tds = row.find_all("td")
                 texts = [clean(td) for td in tds]
-                # print(texts)
+                # print('texts',texts)
 
                 if not texts:
                     continue
@@ -242,7 +271,7 @@ for theme in themes[:7]:
                     continue
 
                 # Case 4: 4칸 구조
-                if len(texts) == 4 and texts[0] in ("O", "X"):
+                if len(texts) == 4 and texts[0] in ("O", "X") and re.match(r"^[①-㊿]+$", texts[2]):
                     index = texts[2]
                     answer = texts[0]
                     desc = texts[-1]
@@ -256,49 +285,83 @@ for theme in themes[:7]:
                     li_idx += 1
                     continue
 
+                # 추가
+                if len(texts) == 4 and texts[0] in ("O", "X") and re.match(r"^[①-㊿]+$", texts[1]):
+                    index = texts[1]
+                    answer = texts[0]
+                    desc = texts[-1]
+
+                    parsed_items_table.append({
+                        "index": index,
+                        "raw_text": desc,
+                        "answer": answer,
+                        "explanation": texts[2]
+                    })
+                    li_idx += 1
+                    continue
+
+                if len(texts) == 4 and texts[-1] in ("O", "X") and re.match(r"^[①-㊿]+$", texts[0]):
+                    # print('tt',texts)
+
+                    index = texts[0]
+                    answer = texts[-1]
+                    desc = texts[1]
+
+                    parsed_items_table.append({
+                        "index": index,
+                        "raw_text": desc,
+                        "answer": answer,
+                        "explanation": texts[2]
+                    })
+                    li_idx += 1
+
+                    continue
+
+
         # =============================================
         # (B) P 기반 파싱 — 테이블이 없을 때만 실행
         # =============================================
         temp_problem = {}
         temp_answer = {}
 
-        if not tables:
-            for b in problem_block:
 
-                if b.name != "p":
-                    continue
+        for b in paragraphs:
 
-                text = clean(b)
+            if b.name != "p":
+                continue
 
-                print('text', text)
+            text = clean(b)
 
-                # ---- 문장 중간에 "⑥ X" ----
-                m = re.search(r'([①-㊿])\s*([OXox])', text)
+            # print('text', text)
 
-                if m:
-                    index = m.group(1)
-                    answer = m.group(2).upper()
-                    explanation = (text[:m.start()] + text[m.end():]).strip()
+            # ---- 문장 중간에 "⑥ X" ----
+            m = re.search(r'([①-㊿])\s*([OXox])', text)
 
-                    temp_answer[index] = {
-                        "index": index,
-                        "answer": answer,
-                        "explanation": explanation
-                    }
-                    continue
 
-                # ---- 보기형 "① 내용…" ----
-                m = re.match(r'^([①-㊿])\s*(.+)$', text)
-                if m:
-                    index = m.group(1)
-                    desc = m.group(2).strip()
-                    print('dddd', m)
+            if m:
+                index = m.group(1)
+                answer = m.group(2).upper()
+                explanation = (text[:m.start()] + text[m.end():]).strip()
 
-                    temp_problem[index] = {
-                        "index": index,
-                        "raw_text": desc
-                    }
-                    continue
+                temp_answer[index] = {
+                    "index": index,
+                    "answer": answer,
+                    "explanation": explanation
+                }
+                continue
+
+            # ---- 보기형 "① 내용…" ----
+            m = re.match(r'^([①-㊿])\s*(.+)$', text)
+            if m:
+                index = m.group(1)
+                desc = m.group(2).strip()
+                # print('dddd', m)
+
+                temp_problem[index] = {
+                    "index": index,
+                    "raw_text": desc
+                }
+                continue
 
         # =============================================
         # (C) table + p 기반 merge
@@ -339,4 +402,13 @@ for theme in themes[:7]:
 # -------------------------------------------------------------
 # 출력
 # -------------------------------------------------------------
-print(json.dumps(results, ensure_ascii=False, indent=2))
+# print(json.dumps(results, ensure_ascii=False, indent=2))
+
+# theme 개수
+theme_count = len(results)
+
+# 각 theme 안의 item 개수 출력
+for theme in results:
+    print(f"테마: {theme['theme']} → 문제 수: {len(theme['items'])}")
+
+print("\n총 theme 개수:", theme_count)
