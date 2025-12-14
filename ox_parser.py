@@ -1,9 +1,8 @@
-from bs4 import BeautifulSoup
-import json
+import os
 import re
+import json
+from bs4 import BeautifulSoup
 from pykospacing import Spacing
-
-spacing = Spacing()
 
 '''
 테마: 부가가치세 기초이론 → 문제 수: 4
@@ -22,7 +21,9 @@ spacing = Spacing()
 테마: 영세율 vs 면세 → 문제 수: 6
 '''
 
-html = open("parse_data/output_17_43_fix.htm", encoding="utf-8").read()
+spacing = Spacing()
+
+html = open("parse_data/부가가치세법 총론.htm", encoding="utf-8").read()
 soup = BeautifulSoup(html, "html.parser")
 
 circled_map = {
@@ -38,13 +39,8 @@ circled_map = {
     "㊻": 46, "㊼": 47, "㊽": 48, "㊾": 49, "㊿": 50
 }
 
-
-# -------------------------------------------------------------
-# Helper
-# -------------------------------------------------------------
 def clean(t):
     return t.get_text(" ", strip=True)
-
 
 def parse_question_number(text):
     m = re.match(r"^(\d+)\s+(.+)", text)
@@ -56,17 +52,16 @@ def parse_question_number(text):
 
     return None, None
 
-
 def clean_li_without_tables(li):
     li_copy = BeautifulSoup(str(li), "html.parser")
     for t in li_copy.find_all("table"):
         t.decompose()
     return li_copy.get_text(" ", strip=True)
 
-
 TARGET_KEYS = {"question_title", "raw_text", "explanation"}
 
 CORRECTION_MAP = {
+    "。":"O",
     "전 단계 세액공제법": "전단계세액공제법",
     "영리 목적": "영리목적",
     "최종 과세기간 분": "최종과세기간분",
@@ -89,8 +84,35 @@ CORRECTION_MAP = {
     "등도주된": "등도 주된",
     "부가가 차세 과세 대상": "부가가차세 과세대상",
     "열등관리": "열 등 관리",
-    "弓": "여"
-
+    "弓": "여",
+    "내 국신용장": "내국신용장"
+    , "위하 여": "위하여",
+    "선（기 ）적일": "선(기）적일",
+    "기성고대금": "기성고 대금",
+    "인도 일": "인도일",
+    "선발급 시선 발급 특례": "선발급 시 선발급특례"
+    , "불문영세율": "불문 영세율",
+    "말한 다": "말한다",
+    "수출 재화임가공 용역": "수출재화임가공용역"
+    , "주한 미국 군": "주한미국군"
+    , "와국": "외국"
+    , "간이과세포 기 여부": "간이과세포기여부"
+    , "내국산 용장": "내국신용장"
+    , "공급돠는": "공급되는",
+    "상품 중 개용역": "상품중개용역"
+    , "내국 신용장": "내국신용장",
+    "외국인도 수출": "외국인도수출"
+    , "수탁 가공사업자": "수탁가공 사업자"
+    , "수출재화임가공용역": "수출재화 임가공용역"
+    , "대하여 도": "대하여도",
+    "때에도주된": "때에도 주된"
+    , "용역으로 서": "용역으로서",
+    "원 생산물": "원생산물"
+    , "©": ""
+    , "®": ""
+    , "시 외우 등 고속버스": "시외우등고속버스"
+    , "대상이 다": "대상이다"
+    , "면세포 기": "면세포기"
 }
 
 
@@ -112,13 +134,10 @@ def clean_text(text: str, remove_all_spaces=False) -> str:
     # 4) circled 번호 뒤 공백 정리
     text = re.sub(r"(①|②|③|④|⑤|⑥|⑦|⑧|⑨|⑩)\s+", r"\1 ", text)
 
-    # 5) 모든 공백 제거 옵션
-    # 띄어쓰기 및 맞춤법 처리
+    # 5) 띄어쓰기 및 맞춤법 처리
     text = spacing(text.replace(" ", ""))
 
-    text = text.replace("。", "O")
-
-    # 7) 단어 교정 단계 추가(단어치환)
+    # 6) 단어 교정 단계 추가(단어치환)
     for wrong, right in CORRECTION_MAP.items():
         text = text.replace(wrong, right)
 
@@ -190,7 +209,7 @@ if current_theme:
 # -------------------------------------------------------------
 results = []
 last_q_num = 0
-for theme in themes[:7]:
+for theme in themes:
     # print('theme',theme)
 
     theme_name = theme["theme_name"]
@@ -484,13 +503,28 @@ for theme in themes[:7]:
 # -------------------------------------------------------------
 cleaned_result = preprocess(results)
 
+# 숫자기호 -> 숫자로 치환
+for q in cleaned_result:
+    for item in q.get("items", []):
+        idx = item.get("index")
+        if isinstance(idx, str) and idx in circled_map:
+            item["index"] = circled_map[idx]
+
 print(json.dumps(cleaned_result, ensure_ascii=False, indent=2))
 
+output_dir = "parse_data/output"
+os.makedirs(output_dir, exist_ok=True)
+
+output_path = os.path.join(output_dir, "부가가치세법 총론.json")
+with open(output_path, "w", encoding="utf-8") as f:
+    json.dump(cleaned_result, f, ensure_ascii=False, indent=2)
+
 # theme 개수
-# theme_count = len(results)
-#
-# # 각 theme 안의 item 개수 출력
+
+
+# 각 theme 안의 item 개수 출력(확인용)
 # for theme in results:
 #     print(f"테마: {theme['theme']} → 문제 수: {len(theme['items'])}")
 #
+# theme_count = len(results)
 # print("\n총 theme 개수:", theme_count)
